@@ -77,12 +77,11 @@ public partial class MainForm : Form
     {
         if (RecentlyHandledConnectedDeviceIds.Count > 0)
         {
-            Debug.WriteLine($"disconnected {RecentlyHandledConnectedDeviceIds.Aggregate((a, b) => $"{a}, {b}")}");
+            Debug.WriteLine($"connected {RecentlyHandledConnectedDeviceIds.Aggregate((a, b) => $"{a}, {b}")}");
         }
         else
         {
-            Debug.WriteLine($"disconnected empty");
-
+            Debug.WriteLine($"connected empty");
         }
         var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
         string deviceId = instance["DeviceID"]?.ToString();
@@ -90,8 +89,6 @@ public partial class MainForm : Form
 
         var device = ExtractDeviceKeyFromId(deviceId);
         if (string.IsNullOrEmpty(device?.Key)) return;
-
-        if (!RecentlyHandledConnectedDeviceIds.Add(device.Key)) return;
 
         if (DetectingHub)
         {
@@ -106,6 +103,8 @@ public partial class MainForm : Form
             DetectingHub = false;
             return;
         }
+
+        if (!RecentlyHandledConnectedDeviceIds.Add(device.Key)) return;
 
         if (device.Key == Settings.HubDevice?.Key)
         {
@@ -151,11 +150,12 @@ public partial class MainForm : Form
         Debug.WriteLine($"switch {code}");
     }
 
-    private static void ScheduleDeviceRemoval(string key, HashSet<string> set)
+    private static async void ScheduleDeviceRemoval(string key, HashSet<string> set)
     {
-       
-        Task.Delay(10000).ContinueWith(_ => { set.Remove(key); Debug.WriteLine($"removal {key}"); }); 
-
+        await Task.Delay(10000);
+        set.Remove(key);
+        Debug.WriteLine($"RecentlyHandledDisconnectedDeviceIds {RecentlyHandledDisconnectedDeviceIds.Count}");
+        Debug.WriteLine($"RecentlyHandledConnectedDeviceIds {RecentlyHandledConnectedDeviceIds.Count}");
     }
 
     private static Device? ExtractDeviceKeyFromId(string deviceId)
