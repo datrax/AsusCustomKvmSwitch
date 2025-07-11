@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Management;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
 
 namespace AsusCustomKvm_FormClient;
 
@@ -41,9 +40,9 @@ public partial class MainForm : Form
     private void InitializeUsbWatchers()
     {
         var creationQuery = new WqlEventQuery(
-            "SELECT * FROM __InstanceCreationEvent WITHIN 2 WHERE TargetInstance ISA 'Win32_PnPEntity'");
+            "SELECT * FROM __InstanceCreationEvent WITHIN 1 WHERE TargetInstance ISA 'Win32_PnPEntity'");
         var deletionQuery = new WqlEventQuery(
-            "SELECT * FROM __InstanceDeletionEvent WITHIN 2 WHERE TargetInstance ISA 'Win32_PnPEntity'");
+            "SELECT * FROM __InstanceDeletionEvent WITHIN 1 WHERE TargetInstance ISA 'Win32_PnPEntity'");
 
         var creationWatcher = new ManagementEventWatcher(creationQuery);
         var deletionWatcher = new ManagementEventWatcher(deletionQuery);
@@ -75,20 +74,24 @@ public partial class MainForm : Form
 
     private static void OnUsbDeviceConnected(object sender, EventArrivedEventArgs e)
     {
-        if (RecentlyHandledConnectedDeviceIds.Count > 0)
-        {
-            Debug.WriteLine($"connected {RecentlyHandledConnectedDeviceIds.Aggregate((a, b) => $"{a}, {b}")}");
-        }
-        else
-        {
-            Debug.WriteLine($"connected empty");
-        }
+        Debug.WriteLine($"connected {(RecentlyHandledConnectedDeviceIds.Count > 0
+            ? string.Join(", ", RecentlyHandledConnectedDeviceIds)
+            : "empty")}");
         var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
         string deviceId = instance["DeviceID"]?.ToString();
         if (string.IsNullOrEmpty(deviceId)) return;
 
         var device = ExtractDeviceKeyFromId(deviceId);
         if (string.IsNullOrEmpty(device?.Key)) return;
+
+        if (RecentlyHandledConnectedDeviceIds.Add(device.Key))
+        {
+            ScheduleDeviceRemoval(device.Key, RecentlyHandledConnectedDeviceIds);
+        }
+        else
+        {
+            return;
+        }
 
         if (DetectingHub)
         {
@@ -104,27 +107,17 @@ public partial class MainForm : Form
             return;
         }
 
-        if (!RecentlyHandledConnectedDeviceIds.Add(device.Key)) return;
-
         if (device.Key == Settings.HubDevice?.Key)
         {
             SetVcp(Settings.OnConnectedVPCCode);
         }
-
-        ScheduleDeviceRemoval(device.Key, RecentlyHandledConnectedDeviceIds);
     }
 
     private static void OnUsbDeviceDisconnected(object sender, EventArrivedEventArgs e)
     {
-        if (RecentlyHandledDisconnectedDeviceIds.Count > 0)
-        {
-            Debug.WriteLine($"disconnected {RecentlyHandledDisconnectedDeviceIds.Aggregate((a, b) => $"{a}, {b}")}");
-        }
-        else
-        {
-            Debug.WriteLine($"disconnected empty");
-
-        }
+        Debug.WriteLine($"connected {(RecentlyHandledDisconnectedDeviceIds.Count > 0
+            ? string.Join(", ", RecentlyHandledDisconnectedDeviceIds)
+            : "empty")}");
         var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
         string deviceId = instance["DeviceID"]?.ToString();
 
@@ -134,14 +127,19 @@ public partial class MainForm : Form
 
         if (string.IsNullOrEmpty(device?.Key)) return;
 
-        if (!RecentlyHandledDisconnectedDeviceIds.Add(device.Key)) return;
+        if (RecentlyHandledDisconnectedDeviceIds.Add(device.Key))
+        {
+            ScheduleDeviceRemoval(device.Key, RecentlyHandledDisconnectedDeviceIds);
+        }
+        else
+        {
+            return;
+        }
 
         if (device.Key == Settings.HubDevice?.Key)
         {
             SetVcp(Settings.OnDisconnectedVPCCode);
         }
-
-        ScheduleDeviceRemoval(device.Key, RecentlyHandledDisconnectedDeviceIds);
     }
 
     private static void SetVcp(uint code)
@@ -152,8 +150,9 @@ public partial class MainForm : Form
 
     private static async void ScheduleDeviceRemoval(string key, HashSet<string> set)
     {
-        await Task.Delay(10000);
+        await Task.Delay(2000);
         set.Remove(key);
+
         Debug.WriteLine($"RecentlyHandledDisconnectedDeviceIds {RecentlyHandledDisconnectedDeviceIds.Count}");
         Debug.WriteLine($"RecentlyHandledConnectedDeviceIds {RecentlyHandledConnectedDeviceIds.Count}");
     }
@@ -177,6 +176,7 @@ public partial class MainForm : Form
 
     private async void detectButton_Click(object sender, EventArgs e)
     {
+        Settings.HubDevice = null;
         usbHubTextField.Text = "Detecting - Reconnect your hub!";
         ((Button)sender).Enabled = false;
         DetectingHub = true;
