@@ -119,7 +119,7 @@ partial class MainForm
         // onDisconnectedInput
         // 
         onDisconnectedInput.FormattingEnabled = true;
-        onDisconnectedInput.Location = new Point(179, 129);
+        onDisconnectedInput.Location = new Point(179, 121);
         onDisconnectedInput.Name = "onDisconnectedInput";
         onDisconnectedInput.Size = new Size(121, 28);
         onDisconnectedInput.TabIndex = 7;

@@ -67,18 +67,21 @@ public partial class MainForm : Form
         }
 
         usbHubTextField.Text = Settings.HubDevice?.Key ?? "";
-        onConnectedInput.Text = $"0x{Settings.OnConnectedVPCCode:X}";
-        onDisconnectedInput.Text = $"0x{Settings.OnDisconnectedVPCCode:X}";
+        onConnectedInput.Text = $"0x{Settings.OnConnectedVPCCode:X2}";
+        onDisconnectedInput.Text = $"0x{Settings.OnDisconnectedVPCCode:X2}";
     }
 
     private static void OnUsbDeviceConnected(object sender, EventArrivedEventArgs e)
     {
+
         var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
         string deviceId = instance["DeviceID"]?.ToString();
         if (string.IsNullOrEmpty(deviceId)) return;
 
         var device = ExtractDeviceKeyFromId(deviceId);
         if (string.IsNullOrEmpty(device?.Key)) return;
+
+        if (!RecentlyHandledDisconnectedDeviceIds.Add(device.Key)) return;
 
         if (DetectingHub)
         {
@@ -94,11 +97,9 @@ public partial class MainForm : Form
             return;
         }
 
-        if (!RecentlyHandledConnectedDeviceIds.Add(device.Key)) return;
-
         if (device.Key == Settings.HubDevice?.Key)
         {
-            ApplyVcp(Settings.OnConnectedVPCCode);
+            SetVcp(Settings.OnConnectedVPCCode);
         }
 
         ScheduleDeviceRemoval(device.Key, RecentlyHandledConnectedDeviceIds);
@@ -119,20 +120,20 @@ public partial class MainForm : Form
 
         if (device.Key == Settings.HubDevice?.Key)
         {
-            ApplyVcp(Settings.OnDisconnectedVPCCode);
+            SetVcp(Settings.OnDisconnectedVPCCode);
         }
 
         ScheduleDeviceRemoval(device.Key, RecentlyHandledDisconnectedDeviceIds);
     }
 
-    private static void ApplyVcp(uint code)
+    private static void SetVcp(uint code)
     {
         DdcCiController.SetVcp(0x60, code);
     }
 
     private static void ScheduleDeviceRemoval(string key, HashSet<string> set)
     {
-        Task.Delay(3000).ContinueWith(_ => set.Remove(key));
+        Task.Delay(3000).ContinueWith(_ => set.Remove(key)); 
     }
 
     private static Device? ExtractDeviceKeyFromId(string deviceId)
@@ -208,7 +209,7 @@ public partial class MainForm : Form
             ? Settings.OnDisconnectedVPCCode
             : Settings.OnConnectedVPCCode;
 
-        ApplyVcp(code);
+        SetVcp(code);
     }
 
     private RegistryKey? GetAutostartRegistryKey()
