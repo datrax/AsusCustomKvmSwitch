@@ -180,7 +180,7 @@ partial class MainForm
         Controls.Add(autostartCheckbox);
         Icon = (Icon)resources.GetObject("$this.Icon");
         Name = "MainForm";
-        Text = "Form1";
+        Text = "ASUS KVM Switch";
         FormClosing += MainFormClosing;
         Resize += MainFormResized;
         contextMenuStrip1.ResumeLayout(false);

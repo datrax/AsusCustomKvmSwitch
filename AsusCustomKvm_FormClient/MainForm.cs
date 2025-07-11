@@ -1,7 +1,9 @@
 ﻿using Microsoft.Win32;
+using System.Diagnostics;
 using System.Globalization;
 using System.Management;
 using System.Text.RegularExpressions;
+using System.Windows.Forms;
 
 namespace AsusCustomKvm_FormClient;
 
@@ -61,7 +63,7 @@ public partial class MainForm : Form
 
     private void InitializeInputValues()
     {
-        if(Settings.HubDevice == null)
+        if (Settings.HubDevice == null)
         {
             Show();
         }
@@ -73,7 +75,15 @@ public partial class MainForm : Form
 
     private static void OnUsbDeviceConnected(object sender, EventArrivedEventArgs e)
     {
+        if (RecentlyHandledConnectedDeviceIds.Count > 0)
+        {
+            Debug.WriteLine($"disconnected {RecentlyHandledConnectedDeviceIds.Aggregate((a, b) => $"{a}, {b}")}");
+        }
+        else
+        {
+            Debug.WriteLine($"disconnected empty");
 
+        }
         var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
         string deviceId = instance["DeviceID"]?.ToString();
         if (string.IsNullOrEmpty(deviceId)) return;
@@ -81,7 +91,7 @@ public partial class MainForm : Form
         var device = ExtractDeviceKeyFromId(deviceId);
         if (string.IsNullOrEmpty(device?.Key)) return;
 
-        if (!RecentlyHandledDisconnectedDeviceIds.Add(device.Key)) return;
+        if (!RecentlyHandledConnectedDeviceIds.Add(device.Key)) return;
 
         if (DetectingHub)
         {
@@ -107,6 +117,15 @@ public partial class MainForm : Form
 
     private static void OnUsbDeviceDisconnected(object sender, EventArrivedEventArgs e)
     {
+        if (RecentlyHandledDisconnectedDeviceIds.Count > 0)
+        {
+            Debug.WriteLine($"disconnected {RecentlyHandledDisconnectedDeviceIds.Aggregate((a, b) => $"{a}, {b}")}");
+        }
+        else
+        {
+            Debug.WriteLine($"disconnected empty");
+
+        }
         var instance = (ManagementBaseObject)e.NewEvent["TargetInstance"];
         string deviceId = instance["DeviceID"]?.ToString();
 
@@ -129,11 +148,14 @@ public partial class MainForm : Form
     private static void SetVcp(uint code)
     {
         DdcCiController.SetVcp(0x60, code);
+        Debug.WriteLine($"switch {code}");
     }
 
     private static void ScheduleDeviceRemoval(string key, HashSet<string> set)
     {
-        Task.Delay(3000).ContinueWith(_ => set.Remove(key)); 
+       
+        Task.Delay(10000).ContinueWith(_ => { set.Remove(key); Debug.WriteLine($"removal {key}"); }); 
+
     }
 
     private static Device? ExtractDeviceKeyFromId(string deviceId)

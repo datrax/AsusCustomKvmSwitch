@@ -5,7 +5,12 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Resources\favicon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\favicon.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.Management" Version="9.0.6" />
